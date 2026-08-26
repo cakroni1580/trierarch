@@ -1,0 +1,62 @@
+name: Android APK Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch yang akan di-build"
+        required: true
+        default: "main"
+        type: string
+
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0"
+
+      - name: Make gradlew executable
+        working-directory: trierarch-app
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        working-directory: trierarch-app
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: List generated APK
+        working-directory: trierarch-app
+        run: |
+          find app/build/outputs/apk -type f -name "*.apk" -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: trierarch-debug-apk-${{ inputs.branch }}
+          path: trierarch-app/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
